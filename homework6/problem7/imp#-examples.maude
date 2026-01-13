@@ -1,0 +1,250 @@
+load imp-examples.maude
+
+--- IMP# program examples
+fmod IMP#-EXAMPLE-CODE is
+  protecting IMP#-PROGRAM .
+  including IMP-EXAMPLE-CODE .
+
+  ops p3+ p4+ p6+ p7+ p8+ p9+ p10+ : -> Program .
+
+
+  --- the sum of numbers up to the input
+  eq p3+ =
+     var 'n ; 
+     var 'a 
+     ;;
+     function 'main() {
+       'n := read ;
+       'a := # 1 ;
+       while 'n > # 0 do
+          'a := 'a * 'n ;
+          'n := 'n - # 1
+       end ;
+       print('a) ;
+       return # 0
+     }
+  .
+
+  --- the sum of even numbers up the input
+  eq p4+ =
+     var 'n 
+     ;;
+     function 'main() {
+       var 'i ; var 's ;
+       'n := read ;
+       'i := # 0 ;
+       's := # 0 ;
+       while 'n >= 'i do
+           if ('i / # 2) * # 2 = 'i then
+               's := 's + 'i
+           fi ;
+           'i := 'i + # 1
+       end ;
+       print('s) ;
+       return # 0
+     }
+  .
+
+  --- This program prints all the prime numbers up to the input.
+  eq p6+ =
+     --- fast multiplication (base 2) algorithm
+     function 'mult ('x, 'y) {
+       var 'z ; var 'q ; var 'r ;
+       'z := # 0 ;
+       while 'x > # 0 do
+         'q := 'x / # 2 ;
+         'r := # 2 * 'q + # 1 ;
+         if 'x >= 'r then 'z := 'z + 'y fi ;
+         'x := 'q ;
+         'y := # 2 * 'y
+       end ; 
+       return 'z
+     }
+     --- checking primality of n 
+     function 'isPrime ('n) {
+       var 'i ; var 'q ;
+       'i := # 2 ;  
+       'q := 'n / 'i ;  
+       while 'i <= 'q do
+         if 'n <= @ 'mult ('i, 'q) then 
+           return # false
+         else
+           'q := 'n / ++ 'i
+         fi
+       end ; 
+       return # true
+     }
+
+     function 'main () {
+       var 'm ; var 'n ; var 's ;
+       'm := read ;  
+       'n := # 1 ;
+       's := # 0 ;
+       while 'm >= ++ 'n do
+         if @ 'isPrime('n) then 's := 's + # 1 ; print('n) fi
+       end ;
+       return 's
+     }
+  .
+
+  --- the behavior of local/global variables
+  eq p7+ =
+     var 'x
+     ;;
+     function 'f () {
+       var 'x ;     --- local variable
+       'x := # 1 ;
+       return 'x
+     }
+     function 'g ('x) {
+       'x := # 2 ;  --- local variable (argument)
+       return 'x
+     }
+     function 'h ('y) {
+       'x := 'y ;   --- global variable
+       return 'x
+     }
+     function 'main() {
+       'x := # 10 ;
+       print(@ 'f ()) ;
+       print(@ 'g (# 0)) ;
+       print('x) ;
+       print(@ 'h (# 3)) ;
+       print('x) ;
+       return # 0
+     }
+  .
+
+  --- insertion sort
+  eq p8+ =
+     var 'x [# 100] 
+     ;;
+     function 'init ('n) {
+       var 'i ;
+       for 'i = # 0 to 'n - # 1 do
+         'x ['i] := 'n + - 'i + # 100
+       end ;
+       return # 0
+     }
+     function 'printAll ('n) {
+       var 'i ;
+       for 'i = # 0 to 'n - # 1 do
+         print(@ 'x['i])
+       end ;
+       return # 0
+     }
+     function 'main () {
+       var 'n ; var 'i ; var 'j ; var 'v ;
+       'n := read ;
+       call @ 'init('n) ;
+       call @ 'printAll('n) ;
+       print (# -1) ;
+       for 'i = # 1 to 'n - # 1 do
+         'v := @ 'x['i] ;
+         'j := 'i - # 1 ;
+         while ('j >= # 0) do
+           if @ 'x['j] > 'v then
+             'x['j + # 1] := @ 'x['j]
+           fi ;
+           'j := 'j - # 1
+         end ;
+         'x['j + # 1] := 'v
+       end ;
+       call @ 'printAll('n) ;
+       return # 0
+     }
+  .
+
+  --- heap  sort
+  eq p9+ =
+     var 'N[# 100] 
+     ;;
+     function 'shiftdown ('root, 'bottom) {
+         var 'done ;
+         var 'maxChild ;
+         var 'temp ;
+         'done := # false ;
+         while 'root * # 2 <= 'bottom && ! 'done do
+             if 'root * # 2 = 'bottom then
+                 'maxChild := 'root * # 2
+             else if @ 'N['root * # 2] > @ 'N['root * # 2 + # 1] then
+                 'maxChild := 'root * # 2
+             else
+                 'maxChild := 'root * # 2 + # 1
+             fi fi ;
+             if @ 'N['root] < @ 'N['maxChild] then
+                 'temp := @ 'N['root] ;
+                 'N['root] := @ 'N['maxChild] ;
+                 'N['maxChild] := 'temp ;
+                 'root := 'maxChild
+             else
+                 'done := # true
+             fi
+         end ;
+         return # 0
+     }
+     function 'heapSort ('size) {
+         var 'temp ;
+         var 'i ;
+         'i := ('size / # 2) + # 1 ;
+         while 'i >= # 0 do
+             call @ 'shiftdown ('i, 'size - # 1) ;
+             'i := 'i - # 1
+         end ;
+         'i := 'size - # 1 ;
+         while 'i >= # 1 do
+             'temp := @ 'N [# 0] ;
+             'N[# 0] := @ 'N['i] ;
+             'N['i] := 'temp ;
+             call @ 'shiftdown(# 0, 'i - # 1) ;
+             'i := 'i - # 1
+         end ;
+         return # 0
+     }
+     function 'main() {
+         var 'x ;
+         var 'i ;
+         'x := read ;
+         for 'i = # 0 to 'x - # 1 do
+             'N['i] := read
+         end ;
+         call @ 'heapSort('x) ;
+         for 'i = # 0 to 'x - # 1 do
+             print(@ 'N['i])
+         end ;
+         return # 0
+     }
+  .
+  
+  --- binary search (by recursion)
+  eq p10+ =
+     var 'array[# 100] ;
+     var 'x 
+     ;;
+     function 'main() {
+         var 'size ;
+         var 'i ;
+         'size := read ;
+         for 'i = # 0 to 'size - # 1 do
+             'array['i] := read
+         end ;
+         'x := read ;
+         print(@ 'bsearch(# 0, 'size - # 1)) ;
+         return # 0
+     }
+     function 'bsearch('left, 'right) {
+         var 'mid ;
+         if 'right >= 'left then
+             'mid := 'left + ('right - 'left) / # 2 ;
+             if (@ 'array ['mid] = 'x) then
+                 return 'mid 
+             else if (@ 'array ['mid] > 'x) then
+                 return @ 'bsearch('left, 'mid - # 1) 
+             else
+                 return @ 'bsearch('mid + # 1, 'right)
+             fi fi
+         fi ;
+         return # -1
+     }
+  .
+endfm

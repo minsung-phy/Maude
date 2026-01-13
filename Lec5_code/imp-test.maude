@@ -1,0 +1,39 @@
+load imp
+
+--- IMP program examples
+fmod IMP-EXAMPLE-PROGRAMS is
+  protecting IMP-PROGRAM .
+
+  ops p1 p2 p3 pgame : -> Program [ctor] .
+
+  eq p1 =
+     vars 'a, 'b ;
+     'a := # 1 ;
+     'b := # 2 ;
+     'a := 'a + 'b
+  .
+
+  eq p2 =
+     vars 'n, 'i, 's ;
+     'n := # 100 ;
+     'i := # 0 ;
+     's := # 0 ;
+     while 'i <= 'n do
+       's := 's + 'i ;
+       'i := 'i + # 1
+     end
+  .
+endfm
+
+
+mod IMP-TEST is
+  protecting IMP-EXAMPLE-PROGRAMS .
+  including IMP-RULES .
+
+  op run : Program -> KConfig .
+  eq run(P:Program) = k(P:Program) env(empty) .
+endm
+
+rew run(p1) .
+
+rew run(p2) .

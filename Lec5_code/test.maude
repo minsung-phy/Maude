@@ -1,0 +1,384 @@
+fmod K-COMPUTATION is --- K-CONFIG 안에 들어가는 것
+    sort K .
+    op .K -> K [ctor] .
+    op _~>_ : K K -> K [ctor prec 70 assoc id: .K] .
+
+    sorts KLabel .
+    subsorts KLabel < K .
+endfm
+
+fmod K-CONFIG is --- k(K) = K-CONFIG (여기서 K가 k-cell임)
+    inc K-COMPUTATION .
+    sorts KConfig .
+    op none : -> KConfig [ctor] .
+    op __ : KConfig KConfig -> KConfig [ctor assoc comm id: none] .
+
+    sort KConfigItem .
+    subsorts KConfigItem < KConfig .
+    op k : K -> KConfig [ctor] .
+endfm
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+load k-prelude
+
+fmod IMP-VALUE is  
+    protecting INT .
+    sorts Value .
+    op #_ : Bool -> Value [ctor] .
+    op #_ : Int -> Value [ctor] .
+    --- #_ : Maude의 내장 정수/불리언을 IMP 언어의 값(Value)으로 감싸주는 래퍼
+endfm
+
+--- IMP에서의 변수 식별자이다. 우리는 Maude에서 Qid sort에 속하는 따옴표가 붙은 식별자(quoted identifiers)를 사용한다.
+fmod IMP-VAR is
+    protecting QID .
+    sort Var .
+    subsort Qid < Var .
+endfm
+
+--- 파라미터화된 모듈을 위한 Views이다. 
+view Value from TRIV to IMP-VALUE is    
+    sort Elt to Value .
+endv
+
+view Var from TRIV to IMP-VAR is
+    sort Elt to Var .
+endv
+
+--- Expressions in IMP (문법 정의)
+    --- gather(E e) : 왼쪽부터 평가하는 연산자
+fmod IMP-EXP is
+    protecting IMP-VALUE .
+    protecting IMP-VAR .
+    
+    sort Exp .
+    subsort Value Var < Exp .
+
+    ops _+_ : Exp Exp -> Exp [ctor gather(E e) prec 33] .
+    ops _*_ : Exp Exp -> Exp [ctor gather(E e) prec 31] .
+    ops _/_ : Exp Exp -> Exp [ctor gather(E e) prec 31] .
+    ops _<=_ : Exp Exp -> Exp [ctor gather(E e) prec 37] .
+    ops _&&_ : Exp Exp -> Exp [ctor gather(E e) prec 55] .
+    op !_ : Exp -> Exp [ctor gather(E e) prec 53] .
+endfm
+
+--- Statements in IMP
+fmod IMP-STMT is
+    protecting IMP-EXP .
+    sort Stmt .
+    op skip : -> Stmt [ctor] .
+    op _:=_ : Var Exp -> Stmt [ctor] .
+    op _;_ : Stmt Stmt -> Stmt [ctor gather(e E) prec 68] .
+    op if_then_else_fi : Exp Stmt Stmt -> Stmt [ctor] .
+    op while_do_end : Exp Stmt -> Stmt [ctor] .
+endfm
+
+--- IMP programs
+fmod IMP-PROGRAM is
+    protecting IMP-STMT .
+    protecting List{Var} * (op __ to _`,_, op nil to noVars) .
+    sort Program .
+    op _;_ : Decl Stmt -> Program [ctor prec 69] .
+
+    sort Decl .
+    op vars_ : List{Var} -> Decl [ctor prec 49] .
+endfm
+
+--- Evaluation contexts (구명 뚫기)
+fmod IMP-EVAL-CONTEXT is
+    protecting IMP-PROGRAM .
+    including K-COMPUTATION .
+    ops `[`]+_ `[`]*_ `[`]/_ `[`]<=_ `[`]&&_ : Exp -> KLabel [ctor] .
+    ops _+`[`] _*`[`] _/`[`] _<=`[`] _&&`[`] : Value -> KLabel [ctor] .
+    op !`[`] : -> KLabel [ctor] .
+
+    op _:=`[`] : -> KLabel [ctor] .
+    op if`[`]then_else_fi : Stmt Stmt -> KLabel [ctor] .
+endfm
+
+--- Heating/cooling rules for IMP
+fmod IMP-STRICTNESS is
+    protecting IMP-EVAL-CONTEXT .
+    including K-CONFIG .
+
+    subsort Exp Stmt Program < KLabel .
+
+    vars E E1 E2 : Exp .
+    vars V V1 V2 : Value .
+    vars S1 S2 : Stmt .
+    var X : Var .
+    var K : K .
+
+    ceq k(E1 + E2 ~> K)      = k(E1 ~> [] + E2 ~> K) if not E1 :: Value .
+    eq k(V1 ~> [] + E2 ~> K) = k(V1 + E2 ~> K) .
+
+    ceq k(V1 + E2 ~> K)      = k(E2 ~> V1 + [] ~> K) if not E2 :: Value .
+    eq k(V2 ~> V1 + [] ~> K) = k(V1 + V2 ~> K) .
+
+    ceq k(E1 * E2 ~> K)      = k(E1 ~> [] * E2 ~> K) if not E1 :: Value .
+    eq k(V1 ~> [] * E2 ~> K) = k(V1 * E2 ~> K) .
+
+    ceq k(V1 * E2 ~> K)      = k(E2 ~> V1 * [] ~> K) if not E2 :: Value .
+    eq k(V2 ~> V1 * [] ~> K) = k(V1 * V2 ~> K) .
+
+    ceq k(E1 / E2 ~> K)      = k(E1 ~> [] / E2 ~> K) if not E1 :: Value .
+    eq k(V1 ~> [] / E2 ~> K) = k(V1 / E2 ~> K) .
+
+    ceq k(V1 / E2 ~> K)      = k(E2 ~> V1 / [] ~> K) if not E2 :: Value .
+    eq k(V2 ~> V1 / [] ~> K) = k(V1 / V2 ~> K) .
+
+    ceq k(E1 && E2 ~> K)     = k(E1 ~> [] && E2 ~> K) if not E1 :: Value .
+    eq k(V1 ~> [] && E2 ~> K) = k(V1 && E2 ~> K) .
+
+    ceq k(! E ~> K) = k(E ~> ! [] ~> K) if not E :: Value .
+    eq k(V ~> ! [] ~> K) = k(! V ~> K) .
+
+    ceq k(X := E ~> K) = k(E ~> X := [] ~> K) if not E :: Value .
+    eq k(V ~> X := [] ~> K) = k(X := V ~> K) .
+
+    ceq k(if E then S1 else S2 fi ~> K)
+        = k (E ~> if [] then S1 else S2 fi ~> K) if not E :: Value .
+    eq k(V ~> if [] then S1 else S2 fi ~> K) 
+        = k(if V then S1 else S2 fi ~> K) .
+endfm
+
+--- K configurations for IMP
+fmod IMP-CONFIG is
+    protecting IMP-PROGRAM .
+    protecting MAP{Var,Value} * (op _,_ to _;_) .
+    including K-CONFIG .
+
+    op env : Map{Var,Value} -> KConfigItem [ctor] .
+endfm
+
+--- K rules for IMP
+mod IMP-RULES is
+    including IMP-CONFIG .
+    including IMP-STRICTNESS .
+
+    var X : Var .
+    var XL : List{Var} .
+    var K : K .
+    vars V V' : Value .
+    var ENV : Map{Var,Value} .
+    var B : Bool .
+    vars I I' : Int .
+    var E : Exp .
+    vars S S' : Stmt .
+
+    rl k(X ~> K) env((X |-> V) ; ENV)
+    => k(V ~> K) env((X |-> V) ; ENV) .
+
+    rl k(# I + # I' ~> K) => k(# (I + I') ~> K) .
+    rl k(# I * # I' ~> K) => k(# (I * I') ~> K) .
+    crl k(# I / # I' ~> K) => k(# (I quo I') ~> K) if I' =/= 0 .
+    rl k(# I <= # I' ~> K) => k(# (I <= I') ~> K) .
+    rl k(# true && E ~> K) => k(E ~> K) .
+    rl k(# false && E ~> K) => k(# false ~> K) .
+    rl k(! (# B) ~> K) => k(# (not B) ~> K) .
+
+    rl k(skip ~> K)
+    => k(K) .
+
+    rl k(X := V ~> K) env((X |-> V'); ENV)
+    => k (K) env((X |-> V); ENV) .
+
+    rl k(S ; S' ~> K) => k(S ~> S' ~> K) .
+
+    rl k(if # true then S else S' fi ~> K) => k(S ~> K) .
+    rl k(if # false then S else S' fi ~> K) => k(S' ~> K) .
+
+    rl k(while E do S end ~> K)
+    => k(if E then (S ; while E do S end) else skip fi ~> K) .
+
+    rl k(vars X, XL ; S) env(ENV) 
+    => k(vars XL ; S) env((X |-> # 0) ; ENV) .
+
+    rl k(vars noVars ; S) env(ENV) 
+    => k(S) env(ENV) .
+endm
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+load imp
+
+--- Expressions in IMP++
+fmod IMP++-EXP is
+    including IMP-EXP .
+    op ++_ : Var -> Exp [ctor prec 30] .
+    op read : -> Exp [ctor] .
+endfm
+
+--- Statements in IMP++
+fmod IMP++-STMT is
+    protecting IMP++-EXP .
+    protecting IMP-STMT .
+    op halt : -> Stmt [ctor] .
+    op spawn : Stmt -> Stmt [ctor] .
+    op print : Exp -> Stmt [ctor] .
+endfm
+
+fmod IMP++-PROGRAM is   
+    including IMP-PROGRAM .
+    including IMP++-STMT .
+endfm
+
+--- Evaluation contexts 
+fmod IMP++-EVAL-CONTEXT is
+    protecting IMP++-PROGRAM .
+    including IMP-EVAL-CONTEXT .
+    op print`[`] : -> KLabel [ctor] .
+endfm
+
+--- Heating/cooling rules for IMP++
+fmod IMP++-STRICTNESS is
+    protecting IMP-STRICTNESS .
+    including IMP++-EVAL-CONTEXT .
+
+    var E : Exp .
+    var V : Value .
+    var K : K .
+
+    ceq k(print(E) ~> K) = k(E ~> print [] ~> K) if not E :: Value .
+    eq k(V ~> print [] ~> K) = k(print(V) ~> K) .
+endfm
+
+--- K configurations for IMP++
+fmod IMP++-CONFIG is
+    including IMP-CONFIG .
+    ops in out : Stream -> KConfigItem [ctor] .
+
+    sort Stream .
+    subsort Value < Stream .
+    op nil : -> Stream [ctor] .
+    op __ : Stream Stream -> Stream [ctor comm assoc id: nil] .
+endfm
+
+--- K rules for IMP++
+mod IMP++-RULES is
+    including IMP++-CONFIG .
+    including IMP++-STRICTNESS .
+    including IMP-RULES .
+
+    var X : Var .
+    var K : K .
+    var V : Value .
+    var ENV : Map{Var,Value} .
+    var I : Int .
+    var S : Stmt .
+    var Stream : Stream .
+
+    rl k(++ X ~> K) env((X |-> # I) ; Env) 
+    => k(# (I + 1) ~> K) env((X |-> # (I + 1)) ; Env) .
+
+    rl k(read ~> K) in (V Stream)
+    => k(V ~> K) in ( Stream) .
+
+    rl k(halt ~> K)
+    => k( .K) .
+
+    rl k(spawn(S) ~> K) 
+    => k(K) k(S) .
+
+    rl k(.K)
+    => none .
+
+    rl k(print(V) ~> K) out(STREAM )
+    => k(K) out(STREAM V) .
+endm
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+load imp
+
+--- IMP program examples
+fmod IMP-EXAMPLE-PROGRAMS is   
+    protecting IMP-PROGRAM .
+
+    ops p1 p2 p3 pgame : -> Program [ctor] .
+
+    eq p1 = 
+        vars 'a, 'b ;
+        'a := # 1 ;
+        'b := # 2 ;
+        'a := 'a + 'b
+    .
+
+    eq p2 =
+        vars 'n, 'i, 's ;
+        'n != # 100 ;
+        'i != # 0 ;
+        's := # 0 ;
+        while 'i <= 'n do
+            's := 's + 'i ;
+            'i := 'i + # 1
+        end
+    .
+endfm
+
+mod IMP-TEST is
+    protecting IMP-EXAMPLE-PROGRAMS .
+    including IMP-RULES .
+
+    op run : Program -> KConfig .
+    eq run(P:Program) = k(P:Program) env(empty) .
+endm
+
+rew run(p1) .
+rew run(p2) .
+
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+load imp++
+
+--- IMP program examples
+fmod IMP++-EXAMPLE-PROGRAMS is
+    protecting IMP++-PROGRAM .
+    
+    ops p3 pgame : -> Program [ctor] .
+
+    eq p3 =
+        vars 'n, 'a ;
+        'n := read ;
+        'a := # 1 ;
+        while ! ('n <= # 0) do
+            'a := 'a * 'n ;
+            'n := 'n + # -1
+        end ;
+        print('a)
+    .
+
+    eq pgame =
+        vars 'c ;
+        'c := # 1 ;
+        spawn(while # true do 'c := 'c + 'c end) ;
+        spawn(while # true do 'c := 'c + 'c end)
+    .
+endfm
+
+mod IMP-TEST is
+    protecting IMP++-EXAMPLE-PROGRAMS .
+    including IMP++-RULES .
+
+    var P : Program .
+    var IS : Stream .
+
+    op run_with_ : Program Stream -> KConfig .
+    eq run P with IS = k(P) env(empty) in(IS) out(nil) .
+
+    op run : Program -> KConfig .
+    eq run(P) = run P with nil .
+endm
+
+rew run p3 with # 10 .
+
+search [1] run(pgame) => * env('c |-> # 2) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 3) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 4) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 5) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 6) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 7) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 8) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 9) C:KConfig .
+rew run(pgame) .

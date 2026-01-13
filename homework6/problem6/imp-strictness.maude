@@ -1,0 +1,73 @@
+--- Evaluation contexts
+fmod IMP-EVAL-CONTEXT is
+  protecting IMP-STMT-DECL .
+  including K-COMPUTATION .
+  ops `[`]+_ `[`]*_ `[`]/_ `[`]<_ `[`]<=_ `[`]=_ `[`]&&_ : Exp -> KLabel [ctor] .
+  ops _+`[`] _*`[`] _/`[`] _<`[`] _<=`[`] _=`[`] _&&`[`] : Value -> KLabel [ctor] .
+  ops !`[`] -`[`] : -> KLabel [ctor] .
+
+  op _:=`[`] : Exp -> KLabel [ctor] .
+  op if`[`]then_else_fi : Stmt Stmt -> KLabel [ctor] .
+endfm
+
+
+--- Heating/cooling rules for IMP
+fmod IMP-STRICTNESS is
+  protecting IMP-EVAL-CONTEXT .
+  including K-CONFIG .
+
+  subsort Exp Block < KLabel .
+
+  vars E E1 E2 : Exp .
+  vars V V1 V2 : Value .
+  vars S1 S2 : Stmt .
+  var X : VarId .
+  var K : K .
+
+  ceq k(E1 + E2 ~> K)       = k(E1 ~> [] + E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] + E2 ~> K) = k(V1 + E2 ~> K) .
+  ceq k(V1 + E2 ~> K)       = k(E2 ~> V1 + [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 + [] ~> K) = k(V1 + V2 ~> K) .
+
+  ceq k(E1 * E2 ~> K)       = k(E1 ~> [] * E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] * E2 ~> K) = k(V1 * E2 ~> K) .
+  ceq k(V1 * E2 ~> K)       = k(E2 ~> V1 * [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 * [] ~> K) = k(V1 * V2 ~> K) .
+
+  ceq k(E1 / E2 ~> K)       = k(E1 ~> [] / E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] / E2 ~> K) = k(V1 / E2 ~> K) .
+  ceq k(V1 / E2 ~> K)       = k(E2 ~> V1 / [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 / [] ~> K) = k(V1 / V2 ~> K) .
+
+  ceq k(E1 < E2 ~> K)       = k(E1 ~> [] < E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] < E2 ~> K) = k(V1 < E2 ~> K) .
+  ceq k(V1 < E2 ~> K)       = k(E2 ~> V1 < [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 < [] ~> K) = k(V1 < V2 ~> K) .
+
+  ceq k(E1 <= E2 ~> K)       = k(E1 ~> [] <= E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] <= E2 ~> K) = k(V1 <= E2 ~> K) .
+  ceq k(V1 <= E2 ~> K)       = k(E2 ~> V1 <= [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 <= [] ~> K) = k(V1 <= V2 ~> K) .
+
+  ceq k(E1 = E2 ~> K)       = k(E1 ~> [] = E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] = E2 ~> K) = k(V1 = E2 ~> K) .
+  ceq k(V1 = E2 ~> K)       = k(E2 ~> V1 = [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 = [] ~> K) = k(V1 = V2 ~> K) .
+
+  ceq k(E1 && E2 ~> K)       = k(E1 ~> [] && E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] && E2 ~> K) = k(V1 && E2 ~> K) .
+
+  ceq k(! E ~> K)       = k(E ~> ! [] ~> K) if not E :: Value .
+  eq  k(V ~> ! [] ~> K) = k(! V ~> K) .
+
+  ceq k(- E ~> K)       = k(E ~> - [] ~> K) if not E :: Value .
+  eq  k(V ~> - [] ~> K) = k(- V ~> K) .
+
+  ceq k(X := E ~> K)       = k(E ~> X := [] ~> K) if not E :: Value .
+  eq  k(V ~> X := [] ~> K) = k(X := V ~> K) .
+
+  ceq k(if E then S1 else S2 fi ~> K)       
+    = k(E ~> if [] then S1 else S2 fi ~> K) if not E :: Value .
+  eq  k(V ~> if [] then S1 else S2 fi ~> K) 
+    = k(if V then S1 else S2 fi ~> K) .
+endfm

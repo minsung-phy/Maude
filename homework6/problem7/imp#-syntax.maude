@@ -1,0 +1,88 @@
+
+--- Lists of expressions, variable ids, and values.
+fmod EXP-LIST is
+  including IMP-EXP .
+
+  sort EmptyList .
+  op nil : -> EmptyList [ctor] .
+  op _,_ : EmptyList EmptyList -> EmptyList [ctor assoc id: nil prec 70] .
+
+  sort ExpList .
+  subsort Exp EmptyList < ExpList .
+  op _,_ : ExpList ExpList -> ExpList [ctor ditto] .
+
+  sort VarIdList .
+  subsorts VarId EmptyList < VarIdList < ExpList .
+  op _,_ : VarIdList VarIdList -> VarIdList [ctor ditto] .
+
+  sort ValueList .
+  subsorts Value EmptyList < ValueList < ExpList .
+  op _,_ : ValueList ValueList -> ValueList [ctor ditto] .
+endfm
+
+
+--- Expressions in IMP#
+fmod IMP#-EXP is
+  including EXP-LIST .
+  op ++_ : VarId -> Exp [ctor prec 30] .    --- variable increment
+  op read : -> Exp [ctor] .                 --- read
+
+  op @_[_] : VarId Exp -> Exp [ctor] .      --- array
+  op @_(_) : VarId ExpList -> Exp [ctor] .  --- function call 
+
+  --- function call with no argument
+  op @_() : VarId -> Exp .
+  eq @ F:VarId () = @ F:VarId (nil) .
+endfm
+
+
+--- Statements and declarations in IMP#
+fmod IMP#-STMT-DECL is
+  protecting IMP#-EXP .
+  protecting IMP-STMT-DECL .
+  op halt : -> Stmt [ctor] .        --- halt
+  op print : Exp -> Stmt [ctor] .   --- print
+
+  op _[_]:=_ : VarId Exp Exp -> Stmt [ctor] .   --- array assignment
+
+  op return_ : Exp -> Stmt [ctor prec 50] .     --- return statement
+  op call_ : Exp -> Stmt [ctor prec 50] .       --- function call statement
+
+  op var_[_] : VarId Value -> Decl [ctor prec 0] . --- array declaration
+
+  var X : VarId .
+  vars E E' : Exp .
+  var S : Stmt .
+
+  --- syntactic sugar: for statement
+  op for_=_to_do_ end : VarId Exp Exp Stmt -> Stmt .
+  eq for X = E to E' do S end
+   = X := E ; while X <= E' do S ; X := X + # 1 end .
+endfm
+
+
+--- Function declarations in IMP#
+fmod IMP#-FUNCDECL is
+  protecting IMP#-STMT-DECL .
+  sort FuncDecl .
+  op function_(_){_} : VarId VarIdList Block -> FuncDecl [ctor] .
+  op empty : -> FuncDecl [ctor] .
+  op __ : FuncDecl FuncDecl -> FuncDecl [ctor assoc comm id: empty] .
+
+  var F : VarId .
+  var CODE : Block .
+
+  op function_(){_} : VarId Block -> FuncDecl .
+  eq function F() {CODE} = function F(nil) {CODE} .
+endfm
+
+
+--- IMP# programs
+fmod IMP#-PROGRAM is
+  including IMP#-FUNCDECL .
+
+  sort Program .
+  subsort FuncDecl < Program .
+  op _;;_ : Decl FuncDecl -> Program [ctor gather(E e) prec 72] .
+endfm
+

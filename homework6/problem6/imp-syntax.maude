@@ -1,0 +1,92 @@
+
+--- Values in IMP. Since declaring Bool and Int as subsorts of Value is not 
+--- allowed in Maude, we define unary operators #_ to deal with this.
+fmod IMP-VALUE is
+  protecting INT .
+  sorts Value .
+  op #_ : Bool -> Value [ctor] .
+  op #_ : Int -> Value [ctor] .
+endfm
+
+
+--- Variable identifiers in IMP. We use quoted identifiers of sort Qid in Maude.
+fmod IMP-VAR is
+  protecting QID .
+  sort VarId .
+  subsort Qid < VarId .
+endfm
+
+
+--- Views for parameterized modules. See Chapter 7 of Maude manual.
+view Value from TRIV to IMP-VALUE is
+  sort Elt to Value .
+endv
+
+
+view VarId from TRIV to IMP-VAR is
+  sort Elt to VarId .
+endv
+
+
+--- Expressions in IMP
+fmod IMP-EXP is
+  protecting IMP-VALUE .
+  protecting IMP-VAR .
+  sort Exp .
+  subsort Value VarId < Exp .
+  op _+_ : Exp Exp -> Exp [ctor gather(E e) prec 33] .
+  op _-_ : Exp Exp -> Exp [ctor gather(E e) prec 33] .
+  op _*_ : Exp Exp -> Exp [ctor gather(E e) prec 31] .
+  op _/_ : Exp Exp -> Exp [ctor gather(E e) prec 31] .
+  op _<_ : Exp Exp -> Exp [ctor prec 37] .
+  op _<=_ : Exp Exp -> Exp [ctor prec 37] .
+  op _>_ : Exp Exp -> Exp [ctor prec 36] .
+  op _>=_ : Exp Exp -> Exp [ctor prec 37] .
+  op _=_ : Exp Exp -> Exp [ctor prec 37] .
+  op _&&_ : Exp Exp -> Exp [ctor gather(E e) prec 55] .
+  op _||_ : Exp Exp -> Exp [ctor] .
+  op !_ : Exp -> Exp [ctor prec 53] .
+  op -_ : Exp -> Exp [ctor prec 30] .
+
+  vars E1 E2 : Exp .
+
+  --- syntactic sugar
+  eq E1 -  E2 = E1 + (- E2) .
+  eq E1 >  E2 = E2 <  E1 .
+  eq E1 >= E2 = E2 <= E1 .
+  eq E1 || E2 = ! (! E1 && ! E2) .
+endfm
+
+
+
+--- Statements, variable declarations, and code blocks in IMP
+fmod IMP-STMT-DECL is
+  protecting IMP-EXP .
+  sort Stmt .
+  op skip : -> Stmt [ctor] .
+  op _:=_ : VarId Exp -> Stmt [ctor] .
+  op _;_ : Stmt Stmt -> Stmt [ctor gather(e E) prec 68] .
+  op if_then_else_fi : Exp Stmt Stmt -> Stmt [ctor] .
+  op while_do_end : Exp Stmt -> Stmt [ctor] .
+
+  sort Decl .
+  op var_ : VarId -> Decl [ctor prec 0] . --- variable declaration
+  op _;_ : Decl Decl -> Decl [ctor gather(e E) prec 68] .
+
+  sort Block .
+  subsort Stmt < Block .
+  op _;_ : Decl Stmt -> Block [ctor gather(E e) prec 70] .
+
+  --- syntactic sugar
+  op if_then_fi : Exp Stmt -> Stmt [ctor] .
+  eq if E:Exp then S:Stmt fi = if E:Exp then S:Stmt else skip fi .
+endfm
+
+
+--- IMP programs
+fmod IMP-PROGRAM is
+  protecting IMP-STMT-DECL .
+  sort Program .
+  subsort Block < Program .
+endfm
+

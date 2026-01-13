@@ -1,0 +1,140 @@
+fmod LOCALS is
+  protecting MAP{Nat, Nat} * (sort Map{Nat,Nat} to Locals) .
+endfm
+
+view Locals from TRIV to LOCALS is
+  sort Elt to Locals . 
+endv
+
+
+fmod FRAME is
+  inc LOCALS .
+  protecting MAP{String, Locals} * (sort Map{String, Locals} to Frame) .
+  op frame : -> Frame . 
+  op locals : -> Locals .
+
+  eq frame = "LOCALS" |-> locals .
+  eq locals = 0 |-> 7 , 1 |-> 18 , 3 |-> 29 .
+
+endfm 
+
+
+fmod WASM-CONFIG is
+  inc FRAME . 
+  sort WasmConfig .
+
+  sort WasmConfigItem .
+  op <conf:[_]> : WasmConfigItem -> WasmConfig .  
+  op none : -> WasmConfigItem [ctor] .
+  op _;_ : WasmConfigItem WasmConfigItem -> WasmConfigItem [ctor assoc id: none] .
+
+
+  sorts State Admininstr .
+  subsort State < WasmConfigItem . 
+  op insts:`[_`] : Admininstr -> WasmConfigItem .
+
+  sort Instr . 
+
+
+  subsort Instr < Admininstr .
+  op __ : Instr Instr -> Instr [ctor assoc] .
+
+  sort StateItem .
+  sort Store .
+
+
+  subsort Store Frame < StateItem .
+  op state:`[_`] : StateItem -> State [ctor] .
+  op _;_ : StateItem StateItem -> StateItem [assoc].
+
+  op store : -> Store . 
+
+
+endfm
+
+
+--- fmod STORE is
+---   inc WASM-CONFIG .
+---   sort Store .
+---   sort StoreItem .
+---   subsort StoreItem < Store .
+
+---   op .S : -> StoreItem [ctor] .
+---   op _,_ : StoreItem StoreItem -> StoreItem [ctor prec 70 assoc id: .S] .
+
+---   sorts FUNCS GLOBALS TABLES MEMS ELEMS DATAS .
+---   subsorts FUNCS GLOBALS TABLES MEMS ELEMS DATAS < StoreItem .
+
+--- endfm
+
+mod INSTR is
+  inc WASM-CONFIG .
+  sort numtype .
+  sort binop_I32 .
+
+  op BINOP _ _ : numtype binop_I32 -> Instr .
+  op I32 : -> numtype [ctor] .
+  ops ADD SUB MUL : -> binop_I32 [ctor] .
+
+  --- Have to move
+  sort instr_num .
+  subsort instr_num < Instr .
+  sort num_I32 .
+  protecting INT .
+  op #_ : Int -> num_I32 [ctor] .
+
+  op CONST _ _ : numtype num_I32 -> instr_num .
+
+  op $binop : numtype binop_I32 num_I32 num_I32 -> num_I32 .
+
+  var nt : numtype .
+  var binop : binop_I32 .
+
+  vars i i' : Int .
+
+  eq $binop(I32, ADD, # i, # i') = # (i + i') .  --- arithmetic function (temp)
+  eq $binop(I32, SUB, # i, # i') = # (i - i') .
+
+---Todo local.get;
+  sort instr_local .
+  subsort instr_local < Instr .
+  sort localidx .
+  subsort localidx < Int .
+
+  op LOCAL.GET : localidx -> instr_local .
+
+
+  var s : Store .
+  var f : Frame .
+  var x : localidx .
+   
+  op $local : StateItem Int -> Int .
+
+  --- eq LOCAL.GET 
+  eq $local((s ; f), x) = f["LOCALS"][x] .
+
+--- 
+
+  rl ((CONST nt # i) (CONST nt # i')) (BINOP nt binop)
+  => (CONST nt $binop(I32, binop, # i , # i' )) .
+
+  var s' : WasmConfigItem .
+  var insts' : Instr .
+
+  rl LOCAL.GET x => LOCAL.GET 0 .
+  --- rl state:[s] ; insts:[insts' (LOCAL.GET x)] => state:[s] ; insts:[insts' (LOCAL.GET x)] .
+
+  --- # i => c_1 
+  --- why should make sure to parse with () ?? to ask.
+
+endm
+
+
+
+rew <conf: [state:[store ; frame] ; insts:[(CONST I32 # 10) (CONST I32 # 50) (BINOP I32 SUB) (CONST I32 # 25) (BINOP I32 ADD)]] > .
+--- fmod FRAME is
+---   inc WASM-CONFIG .
+---   sort Frame .
+---   sort 
+
+--- TODO Value, Frame, Store

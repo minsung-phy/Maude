@@ -1,0 +1,54 @@
+load imp++
+
+
+--- IMP program examples
+fmod IMP++-EXAMPLE-PROGRAMS is
+  protecting IMP++-PROGRAM .
+
+  ops p3 pgame : -> Program [ctor] .
+
+  eq p3 =
+     vars 'n, 'a ;
+     'n := read ;
+     'a := # 1 ;
+     while ! ('n <= # 0) do
+       'a := 'a * 'n ;
+       'n := 'n + # -1
+     end ;
+     print('a)
+  .
+
+  eq pgame =
+     vars 'c ;
+     'c := # 1 ;
+     spawn(while # true do 'c := 'c + 'c end) ;
+     spawn(while # true do 'c := 'c + 'c end)
+  .
+endfm
+
+
+mod IMP-TEST is
+  protecting IMP++-EXAMPLE-PROGRAMS .
+  including IMP++-RULES .
+
+  var P : Program .
+  var IS : Stream .
+
+  op run_with_ : Program Stream -> KConfig .
+  eq run P with IS = k(P) env(empty) in(IS) out(nil) .
+
+  op run : Program -> KConfig .
+  eq run(P) = run P with nil .
+endm
+
+rew run p3 with # 10 .
+
+search [1] run(pgame) =>* env('c |-> # 2) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 3) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 4) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 5) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 6) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 7) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 8) C:KConfig .
+search [1] run(pgame) =>* env('c |-> # 9) C:KConfig .
+rew run(pgame) .

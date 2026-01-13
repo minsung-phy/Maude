@@ -1,0 +1,93 @@
+load imp
+
+
+--- Expressions in IMP++
+fmod IMP++-EXP is
+  including IMP-EXP .
+  op ++_ : Var -> Exp [ctor prec 30] .
+  op read : -> Exp [ctor] .
+endfm
+
+
+--- Statements in IMP++
+fmod IMP++-STMT is
+  protecting IMP++-EXP .
+  protecting IMP-STMT .
+  op halt : -> Stmt [ctor] .
+  op spawn : Stmt -> Stmt [ctor] .
+  op print : Exp -> Stmt [ctor] .
+endfm
+
+
+fmod IMP++-PROGRAM is
+  including IMP-PROGRAM .
+  including IMP++-STMT .
+endfm
+
+
+--- Evaluation contexts
+fmod IMP++-EVAL-CONTEXT is
+  protecting IMP++-PROGRAM .
+  including IMP-EVAL-CONTEXT .
+  op print`[`] : -> KLabel [ctor] .
+endfm
+
+
+--- Heating/cooling rules for IMP++
+fmod IMP++-STRICTNESS is
+  protecting IMP-STRICTNESS .
+  including IMP++-EVAL-CONTEXT .
+
+  var E : Exp .
+  var V : Value .
+  var K : K .
+
+  ceq k(print(E) ~> K)      = k(E ~> print [] ~> K) if not E :: Value .
+  eq  k(V ~> print [] ~> K) = k(print(V) ~> K) .
+endfm
+
+
+--- K configurations for IMP++
+fmod IMP++-CONFIG is
+  including IMP-CONFIG .
+  ops in out : Stream -> KConfigItem [ctor] .
+
+  sort Stream .
+  subsort Value < Stream .
+  op nil : -> Stream [ctor] .
+  op __ : Stream Stream -> Stream [ctor comm assoc id: nil] .
+endfm
+
+
+--- K rules for IMP++
+mod IMP++-RULES is
+  including IMP++-CONFIG .
+  including IMP++-STRICTNESS .
+  including IMP-RULES .
+
+  var X : Var .
+  var K : K .
+  var V : Value .
+  var ENV : Map{Var,Value} .
+  var I : Int .
+  var S : Stmt .
+  var STREAM : Stream .
+
+  rl k(++ X      ~> K) env((X |-> # I)       ; ENV)
+  => k(# (I + 1) ~> K) env((X |-> # (I + 1)) ; ENV) .
+
+  rl k(read ~> K) in(V STREAM) 
+  => k(V    ~> K) in(  STREAM) .
+
+  rl k(halt ~> K) 
+  => k(       .K) .
+
+  rl k(spawn(S) ~> K)
+  => k(            K) k(S) .
+
+  rl k(.K)
+  => none .
+
+  rl k(print(V) ~> K) out(STREAM  )
+  => k(            K) out(STREAM V) .
+endm

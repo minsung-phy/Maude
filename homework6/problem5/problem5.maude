@@ -1,0 +1,271 @@
+load imp-syntax.maude
+
+fmod SOS-CONFIG is
+  protecting IMP-PROGRAM .
+  protecting MAP{VarId,Value} * (op _,_ to _;_) .
+
+  sort Config .
+  op <_,_> : Program Map{VarId,Value} -> Config [ctor] .
+  op <_,_> : Exp Map{VarId,Value} -> Config [ctor] .
+
+  sort Result .
+  op <_> : Value -> Result [ctor] .
+  op <_> : Map{VarId,Value} -> Result [ctor] .
+  
+  var X : VarId .
+  var DECL : Decl .
+  var ENV : Map{VarId,Value} .
+
+ --- returns an initial store from the variable declarations
+ op initStore : Decl -> Map{VarId,Value} .
+ op initStore : Decl Map{VarId,Value} -> Map{VarId,Value} .
+ eq initStore(DECL) = initStore(DECL, empty) .
+ eq initStore(var X ; DECL, ENV) = initStore(DECL, ENV ; (X |-> # 0)) .
+ eq initStore(var X, ENV) = ENV ; (X |-> # 0) .
+endfm
+
+
+mod BIGSTEP-SOS is
+  protecting SOS-CONFIG .
+
+  op exec_ : Config -> Result .
+
+  var X : VarId .
+  var V : Value .
+  vars I I' : Int .
+  vars E E' : Exp .
+  var S : Stmt .
+  var DECL : Decl .
+  var ENV : Map{VarId,Value} .
+
+  --- value
+  rl exec < V, ENV > => < V > .
+
+  --- variable lookup
+  rl exec < X, (X |-> V) ; ENV > => < V > .
+
+  --- addition
+  crl exec < E + E', ENV > => < # (I + I') >
+   if exec < E,  ENV > => < # I >
+   /\ exec < E', ENV > => < # I' > .
+
+  --- variable declaration
+  crl exec < DECL ; S, empty > => < ENV >
+   if exec < S, initStore(DECL) > => < ENV > .
+
+---TODO: Complete big-step SOS rules for IMP. That is, write rules for:
+---  *, /, <, <=, =, &&, !, -, skip, :=, ;, if, while
+  vars S1 S2 : Stmt .
+  vars B B' : Bool .
+  vars ENV' ENV'' : Map{VarId,Value} .
+  
+  crl exec < E * E', ENV > => < # (I * I') >
+    if exec < E,  ENV > => < # I >
+    /\ exec < E', ENV > => < # I' > .
+
+  crl exec < E / E', ENV > => < # (I quo I') >
+    if exec < E,  ENV > => < # I >
+    /\ exec < E', ENV > => < # I' > 
+    /\ I' =/= 0 .
+
+  crl exec < E < E', ENV > => < # (I < I') >
+    if exec < E,  ENV > => < # I >
+    /\ exec < E', ENV > => < # I' > .
+
+  crl exec < E <= E', ENV > => < # (I <= I') >
+    if exec < E,  ENV > => < # I >
+    /\ exec < E', ENV > => < # I' > .
+  
+  crl exec < E = E', ENV > => < # (I == I') >
+    if exec < E,  ENV > => < # I >
+    /\ exec < E', ENV > => < # I' > .
+
+  crl exec < E && E', ENV > => < # (B and B') >
+    if exec < E,  ENV > => < # B >
+    /\ exec < E', ENV > => < # B' > .
+
+  crl exec < ! E, ENV > => < # (not B) >
+    if exec < E, ENV > => < # B > .
+  
+  crl exec < - E, ENV > => < # (- I) >
+    if exec < E, ENV > => < # I > .
+
+  rl exec < skip, ENV > => < ENV > .
+
+  crl exec < X := E, (X |-> V) ; ENV > => < (X |-> # I) ; ENV >
+    if exec < E, (X |-> V) ; ENV > => < # I > .
+  
+  crl exec < S1 ; S2, ENV > => < ENV'' >
+    if exec < S1, ENV >  => < ENV' >
+    /\ exec < S2, ENV' > => < ENV'' > .
+
+  crl exec < if E then S1 else S2 fi, ENV > => < ENV' >
+    if exec < E, ENV > => < # true >
+    /\ exec < S1, ENV > => < ENV' > .
+  
+  crl exec < if E then S1 else S2 fi, ENV > => < ENV' >
+    if exec < E, ENV > => < # false >
+    /\ exec < S2, ENV > => < ENV' > .
+  
+  crl exec < while E do S end, ENV > => < ENV >
+    if exec < E, ENV > => < # false > .
+
+  crl exec < while E do S end, ENV > => < ENV' >
+    if exec < E, ENV > => < # true > 
+    /\ exec < S ; while E do S end, ENV > => < ENV' > .
+endm
+
+
+mod SMALLSTEP-SOS is
+  protecting SOS-CONFIG .
+
+  op step_ : Config -> Config .
+
+  var X : VarId .
+  vars V V' : Value .
+  vars I I' : Int .
+  vars B B' : Bool .
+  vars E E' : Exp .
+  vars F F' : Exp .
+  vars S S' : Stmt .
+  vars T T' : Stmt .
+  var DECL : Decl .
+  vars ENV ENV' ENV'' : Map{VarId,Value} .
+
+  --- variable lookup
+  rl step < X, (X |-> V) ; ENV > => < V, (X |-> V) ; ENV > .
+
+  --- addition
+  crl step < E + E', ENV > => < F + E', ENV >
+   if step < E, ENV > => < F, ENV > .
+
+  crl step < E + E', ENV > => < E + F', ENV >
+   if step < E', ENV > => < F', ENV > .
+
+  rl  step < # I + # I', ENV > => < # (I + I'), ENV > .
+
+  --- variable declaration
+  rl  step < DECL ; S, empty > => < S, initStore(DECL) > .
+
+---TODO: Complete small-step SOS rules for IMP. That is, write rules for:
+---  *, /, <, <=, =, &&, !, -, skip, :=, ;, if, while
+  crl step < E * E', ENV > => < F * E', ENV >
+    if step < E, ENV > => < F, ENV > .
+  
+  crl step < E * E', ENV > => < E * F, ENV >
+    if step < E', ENV > => < F, ENV > .
+
+  rl step < # I * # I', ENV > => < # (I * I'), ENV > .
+
+  crl step < E / E', ENV > => < F / E', ENV >
+    if step < E, ENV > => < F, ENV > .
+  
+  crl step < E / E', ENV > => < E / F', ENV >
+    if step < E', ENV > => < F', ENV > .
+  
+  crl step < # I / # I', ENV > => < # (I quo I'), ENV > if I' =/= 0 .
+
+  crl step < E < E', ENV > => < F < E', ENV > 
+    if step < E, ENV > => < F, ENV > .
+  
+  crl step < E < E', ENV > => < E < F', ENV >
+    if step < E', ENV > => < F', ENV > .
+
+  crl step < E <= E', ENV > => < F <= E', ENV > 
+    if step < E, ENV > => < F, ENV > .
+  
+  crl step < E <= E', ENV > => < E <= F', ENV >
+    if step < E', ENV > => < F', ENV > .
+  
+  rl step < # I <  # I', ENV > => < # (I < I'), ENV > .
+
+  rl step < # I <= # I', ENV > => < # (I <= I'), ENV > .
+
+  crl step < E = E', ENV > => < F = E, ENV >
+    if step < E, ENV > => < F, ENV > .
+  
+  crl step < E = E', ENV > => < E = F', ENV >
+    if step < E', ENV > => < F', ENV > .
+
+  rl step < # I = # I', ENV > => < # (I == I'), ENV > .
+
+  crl step < E && E', ENV > => < F && E', ENV >
+    if step < E, ENV > => < F, ENV > .
+  
+  rl step < # true && E, ENV > => < E, ENV > .
+  rl step < # false && E, ENV > => < # false, ENV > .
+
+  crl step < ! E, ENV > => < ! F, ENV > 
+    if step < E, ENV > => < F, ENV > .
+  
+  rl step < ! # B, ENV > => < # (not B), ENV > .
+
+  crl step < - E, ENV > => < - F, ENV >
+    if step < E, ENV > => < F, ENV > .
+  
+  rl step < - # I, ENV > => < # (- I), ENV > .
+
+  rl step < skip ; S, ENV > => < S, ENV > .
+
+  crl step < X := E, ENV > => < X := F, ENV' >
+    if step < E, ENV > => < F, ENV' > .
+  
+  rl step < X := V, (X |-> V') ; ENV > => < skip, (X |-> V) ; ENV > .
+  
+  crl step < S ; S', ENV > => < T ; S', ENV' > 
+    if step < S, ENV > => < T, ENV' > .
+  
+  crl step < if E then S else S' fi, ENV > => < if F then S else S' fi, ENV >
+    if step < E, ENV > => < F, ENV > .
+  
+  rl step < if # true then S else S' fi, ENV > => < S, ENV > .
+  rl step < if # false then S else S' fi, ENV > => < S', ENV > .
+
+  rl step < while E do S end, ENV > => < if E then (S ; while E do S end) else skip fi, ENV > .
+endm
+
+
+load imp-examples.maude
+
+mod BIGSTEP-SOS-TEST is
+  protecting IMP-EXAMPLE-CODE .
+  including BIGSTEP-SOS .
+endm
+
+rew exec < ('x + # 1) + 'x, 'x |-> # 2 > .
+
+---(
+rew exec < p1, empty > .
+rew exec < p2, empty > .
+rew exec < p3, empty > .
+rew exec < p4, empty > .
+rew exec < p5, empty > .
+rew exec < p6, empty > .
+---)
+
+
+mod SMALLSTEP-SOS-TEST is
+  protecting IMP-EXAMPLE-CODE .
+  including SMALLSTEP-SOS .
+
+  var ENV : Map{VarId,Value} .
+  var P : Program .
+
+--- repeatedly applies "step" until the program ends (i.e., 
+--- until "skip" is obtained.) 
+  op exec_ : Config -> Result .
+  eq exec < skip, ENV > = < ENV > .
+  eq exec < P,    ENV > = exec (step < P, ENV >) [owise] .
+endm
+
+rew step < ('x + # 1) + 'x, 'x |-> # 2 > .
+
+---(
+rew exec < p1, empty > .
+rew exec < p2, empty > .
+rew exec < p3, empty > .
+rew exec < p4, empty > .
+rew exec < p5, empty > .
+rew exec < p6, empty > .
+---)
+

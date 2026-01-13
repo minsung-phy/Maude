@@ -1,0 +1,199 @@
+load k-prelude
+
+--- 즉, Bool과 Int를 의미한다. 
+--- 그러나 Bool과 Int를 Value의 subsorts로 선언하는 것은 Maude에서 허용되지 않는다.
+--- 이 문제를 해결하기 위해 단항 연산자 #_을 정의한다.
+fmod IMP-VALUE is
+  protecting INT .
+  sorts Value .
+  op #_ : Bool -> Value [ctor] .
+  op #_ : Int -> Value [ctor] .
+  --- #_ : Maude의 내장 정수/불리언을 IMP 언어의 값(Value)으로 감싸주는 래퍼
+endfm
+
+
+--- IMP에서의 변수 식별자이다. 우리는 Maude에서 Qid sort에 속하는 따옴표가 붙은 식별자(quoted identifiers)를 사용한다.
+fmod IMP-VAR is
+  protecting QID .
+  sort Var .
+  subsort Qid < Var .
+endfm
+
+
+--- 파라미터화된 모듈을 위한 Views이다. 자세한 내용은 Maude 매뉴얼의 7장을 참조하라.
+view Value from TRIV to IMP-VALUE is
+  sort Elt to Value .
+endv
+
+
+view Var from TRIV to IMP-VAR is
+  sort Elt to Var .
+endv
+
+
+--- Expressions in IMP
+    --- gather(E e) : 왼쪽부터 평가하는 연산자
+fmod IMP-EXP is
+  protecting IMP-VALUE .
+  protecting IMP-VAR .
+  sort Exp .
+  subsort Value Var < Exp .
+  ops _+_ : Exp Exp -> Exp [ctor gather(E e) prec 33] .
+  ops _*_ : Exp Exp -> Exp [ctor gather(E e) prec 31] .
+  ops _/_ : Exp Exp -> Exp [ctor gather(E e) prec 31] .
+  ops _<=_ : Exp Exp -> Exp [ctor gather(E e) prec 37] .
+  ops _&&_ : Exp Exp -> Exp [ctor gather(E e) prec 55] .
+  op !_ : Exp -> Exp [ctor prec 53] .
+endfm
+--- 아니 잠만. k-rules에 따르면 value만 넣지 않나? var은 왜 넣지 ???
+  --- 변수도 식안에서 쓰여야지. 그래야지 나중에 env에서 값을 찾아서 평가되겠지.
+
+
+--- Statements in IMP
+fmod IMP-STMT is
+  protecting IMP-EXP .
+  sort Stmt .
+  op skip : -> Stmt [ctor] .
+  op _:=_ : Var Exp -> Stmt [ctor] .
+  op _;_ : Stmt Stmt -> Stmt [ctor gather(e E) prec 68] .
+  op if_then_else_fi : Exp Stmt Stmt -> Stmt [ctor] .
+  op while_do_end : Exp Stmt -> Stmt [ctor] .
+endfm
+
+
+--- IMP programs
+fmod IMP-PROGRAM is
+  protecting IMP-STMT .
+  protecting LIST{Var} * (op __ to _`,_, op nil to noVars) .
+  sort Program .
+  op _;_ : Decl Stmt -> Program [ctor prec 69] .
+
+  sort Decl .
+  op vars_ : List{Var} -> Decl [ctor prec 49] .
+endfm
+
+--- Evaluation contexts (구멍 뚫기)
+fmod IMP-EVAL-CONTEXT is
+  protecting IMP-PROGRAM .
+  including K-COMPUTATION .
+  ops `[`]+_ `[`]*_ `[`]/_ `[`]<=_ `[`]&&_ : Exp -> KLabel [ctor] .
+  ops _+`[`] _*`[`] _/`[`] _<=`[`] _&&`[`] : Value -> KLabel [ctor] .
+  op !`[`] : -> KLabel [ctor] .
+
+  op _:=`[`] : Exp -> KLabel [ctor] .
+  op if`[`]then_else_fi : Stmt Stmt -> KLabel [ctor] .
+endfm
+
+
+--- Heating/cooling rules for IMP
+fmod IMP-STRICTNESS is
+  protecting IMP-EVAL-CONTEXT .
+  including K-CONFIG .
+
+  subsort Exp Stmt Program < KLabel .
+
+  vars E E1 E2 : Exp .
+  vars V V1 V2 : Value .
+  vars S1 S2 : Stmt .
+  var X : Var .
+  var K : K .
+
+  ceq k(E1 + E2 ~> K)       = k(E1 ~> [] + E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] + E2 ~> K) = k(V1 + E2 ~> K) .
+
+  ceq k(V1 + E2 ~> K)       = k(E2 ~> V1 + [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 + [] ~> K) = k(V1 + V2 ~> K) .
+
+  ceq k(E1 * E2 ~> K)       = k(E1 ~> [] * E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] * E2 ~> K) = k(V1 * E2 ~> K) .
+
+  ceq k(V1 * E2 ~> K)       = k(E2 ~> V1 * [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 * [] ~> K) = k(V1 * V2 ~> K) .
+
+  ceq k(E1 / E2 ~> K)       = k(E1 ~> [] / E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] / E2 ~> K) = k(V1 / E2 ~> K) .
+
+  ceq k(V1 / E2 ~> K)       = k(E2 ~> V1 / [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 / [] ~> K) = k(V1 / V2 ~> K) .
+
+  ceq k(E1 <= E2 ~> K)       = k(E1 ~> [] <= E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] <= E2 ~> K) = k(V1 <= E2 ~> K) .
+
+  ceq k(V1 <= E2 ~> K)       = k(E2 ~> V1 <= [] ~> K) if not E2 :: Value .
+  eq  k(V2 ~> V1 <= [] ~> K) = k(V1 <= V2 ~> K) .
+
+  ceq k(E1 && E2 ~> K)       = k(E1 ~> [] && E2 ~> K) if not E1 :: Value .
+  eq  k(V1 ~> [] && E2 ~> K) = k(V1 && E2 ~> K) .
+
+  ceq k(! E ~> K)       = k(E ~> ! [] ~> K) if not E :: Value .
+  eq  k(V ~> ! [] ~> K) = k(! V ~> K) .
+
+  ceq k(X := E ~> K)       = k(E ~> X := [] ~> K) if not E :: Value .
+  eq  k(V ~> X := [] ~> K) = k(X := V ~> K) .
+
+  ceq k(if E then S1 else S2 fi ~> K)       
+    = k(E ~> if [] then S1 else S2 fi ~> K) if not E :: Value .
+  eq  k(V ~> if [] then S1 else S2 fi ~> K) 
+    = k(if V then S1 else S2 fi ~> K) .
+endfm
+
+
+--- K configurations for IMP
+fmod IMP-CONFIG is
+  protecting IMP-PROGRAM .
+  protecting MAP{Var,Value} * (op _,_ to _;_) .
+  including K-CONFIG .
+
+  op env : Map{Var,Value} -> KConfigItem [ctor] .
+endfm
+
+
+--- K rules for IMP
+mod IMP-RULES is
+  including IMP-CONFIG .
+  including IMP-STRICTNESS .
+
+  var X : Var .
+  var XL : List{Var} .
+  var K : K .
+  vars V V' : Value .
+  var ENV : Map{Var,Value} .
+  var B : Bool .
+  vars I I' : Int .
+  var E : Exp .
+  vars S S' : Stmt .
+
+  rl k(X ~> K) env((X |-> V) ; ENV) 
+  => k(V ~> K) env((X |-> V) ; ENV) .
+
+  rl  k(# I + # I' ~> K)   => k(# (I + I') ~> K) .
+  rl  k(# I * # I' ~> K)   => k(# (I * I') ~> K) .
+  crl k(# I / # I' ~> K)   => k(# (I quo I') ~> K) if I' =/= 0 .
+  rl  k(# I <= # I' ~> K)  => k(# (I <= I') ~> K) .
+  rl  k(# true  && E ~> K) => k(E ~> K) .
+  rl  k(# false && E ~> K) => k(# false ~> K) .
+  rl  k(! (# B) ~> K)      => k(# (not B) ~> K) .
+
+  rl k(skip ~> K) 
+  => k(K) .
+
+  rl k(X := V ~> K) env((X |-> V') ; ENV)
+  => k(          K) env((X |-> V)  ; ENV) .
+
+  rl k(S ; S' ~> K) => k(S ~> S' ~> K) .
+
+  rl k(if # true  then S else S' fi ~> K) => k(S  ~> K) .
+  rl k(if # false then S else S' fi ~> K) => k(S' ~> K) .
+
+  rl k(while E do S end ~> K) 
+  => k(if E then (S ; while E do S end) else skip fi ~> K) .
+
+  rl k(vars X, XL ; S) env(ENV)
+  => k(vars    XL ; S) env((X |-> # 0) ; ENV) .
+
+  rl k(vars noVars ; S) env(ENV)
+  => k(              S) env(ENV) .
+endm
+
+
+

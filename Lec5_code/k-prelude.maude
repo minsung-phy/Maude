@@ -1,0 +1,21 @@
+fmod K-COMPUTATION is --- K-CONFIG 안에 들어가는 것
+  sort K .
+  op .K : -> K [ctor] . 
+  op _~>_ : K K -> K [ctor prec 70 assoc id: .K] .
+
+  sorts KLabel .
+  subsorts KLabel < K .
+endfm
+
+
+fmod K-CONFIG is --- k(K) = K-CONFIG (여기서 K가 k-cell임)
+  inc K-COMPUTATION .
+  sorts KConfig .
+  op none : -> KConfig [ctor] .
+  op __ : KConfig KConfig -> KConfig [ctor assoc comm id: none] .
+
+  sort KConfigItem .
+  subsorts KConfigItem < KConfig .
+  op k : K -> KConfig [ctor] .
+endfm
+

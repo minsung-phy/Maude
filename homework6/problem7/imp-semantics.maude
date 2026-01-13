@@ -1,0 +1,140 @@
+load k-prelude
+load imp-syntax
+load imp-strictness
+
+
+--- Basic K rules for IMP (declared using equations)
+mod IMP-RULES-BASIC is
+  protecting IMP-STRICTNESS .
+
+  var E : Exp .
+  var B : Bool .        
+  vars I I' : Int .
+
+  --- the evaluation of expressions
+  eq (# I +  # I') = # (I + I') .
+  eq (# I *  # I') = # (I * I') .
+ ceq (# I /  # I') = # (I quo I')  if I' =/= 0 .
+  eq (# I <  # I') = # (I < I') .
+  eq (# I <= # I') = # (I <= I') .
+  eq (# I =  # I') = # (I == I') .
+  eq # true  && E  = E .
+  eq # false && E  = # false .
+  eq ! (# B)       = # (not B) .
+  eq - (# I)       = # (- I) .
+endm
+
+
+--- The computation configuration item for IMP#.
+fmod IMP-K-CONFIG is
+  including K-CONFIG .
+  protecting IMP-STMT-DECL .
+
+  --- expressions and code blocks are K labels.
+  subsort Exp Block < KLabel .
+
+  --- declarations in k are enclosed by {_} to avoid sort clashes.
+  op {_} : Decl -> KLabel [ctor] .
+
+  var K : K .           
+  vars D D' : Decl .
+  vars S S' : Stmt .
+
+  --- skip and _;_ are declared as operations on ~>
+  eq k(skip ~> K)   = k(K) .
+  eq k(S ; S' ~> K) = k(S ~> S' ~> K) .
+
+  eq k(D ; S)         = k({D} ~> S) .
+  eq k({D ; D'} ~> K) = k({D} ~> {D'} ~> K) .
+endfm
+
+
+--- K configurations for IMP with multiple threads. The entire configuration
+--- has the form: thread(...) ... thread(...) env(...) latest(...)
+fmod IMP-CONFIG-THREADS is
+  protecting MAP{VarId,Value} * (op _,_ to _;_) .
+  including IMP-K-CONFIG .
+
+  op env : Map{VarId,Value} -> KConfigItem [ctor] .
+
+  --- A thread configuration has the form: thread(id(...) k(...))
+  op thread : KConfig -> KConfigItem [ctor] .
+  op id : Nat -> KConfigItem [ctor] .  --- thread id
+
+  --- The latest thread to take a transition
+  op latest : Nat -> KConfigItem [ctor] . 
+endfm
+
+
+--- K rules for IMP with multiple threads.
+mod IMP-RULES-THREADS is
+  including IMP-PROGRAM .
+  including IMP-CONFIG-THREADS .
+  protecting IMP-RULES-BASIC .
+
+  --- abstract code blocks
+  sorts UserStmt LoopingUserStmt .
+  subsort LoopingUserStmt < UserStmt < Stmt .
+
+  var X : VarId .       vars D D' : Decl .
+  var K : K .           var CF : KConfig .
+  vars V V' : Value .   var ENV : Map{VarId,Value} .
+  var E : Exp .         vars S S' : Stmt .
+  var U : UserStmt .    var L : LoopingUserStmt .
+  var B : Bool .        vars I I' : Int .
+  var ID ID' : Nat .
+
+  --- variable lookup
+  rl [lookup]:
+     thread(k(X ~> K) id(ID)) env((X |-> V) ; ENV) latest(ID') 
+  => thread(k(V ~> K) id(ID)) env((X |-> V) ; ENV) latest(ID)  .
+
+  --- variable assignment
+  rl [assign]: 
+     thread(k(X := V ~> K) id(ID)) env((X |-> V') ; ENV) latest(ID') 
+  => thread(k(          K) id(ID)) env((X |-> V)  ; ENV) latest(ID) .
+
+  --- conditional statement
+   --- # B(Value)에서 B(실제 Bool)로 언래핑하는 단계
+  rl [cond]: 
+     thread(k(if # B then S else S' fi ~> K) id(ID)) latest(ID') 
+  => thread(k(if B then S else S' fi   ~> K) id(ID)) latest(ID) .
+
+  --- while statement
+  rl [while]:
+     thread(k(while E do S end ~> K) id(ID)) latest(ID') 
+  => thread(k(if E then (S ; while E do S end) else skip fi ~> K) id(ID)) latest(ID) .
+
+  --- variable declaration
+  rl [alloc]:
+     thread(k({var X} ~> K) id(ID)) env(ENV) latest(ID')
+  => thread(k(           K) id(ID)) env((X |-> # 0) ; ENV) latest(ID) .
+
+  --- user statement
+  rl [user]:
+     thread(k(U ~> K) id(ID)) latest(ID') 
+  => thread(k(     K) id(ID)) latest(ID) .
+
+  --- user looping statement
+  rl [user-looping]:
+     thread(k(L ~> K) id(ID)) latest(ID') 
+  => thread(k(L ~> K) id(ID)) latest(ID) .
+endm
+
+
+---(
+load imp-examples.maude
+
+mod IMP-TEST is
+  protecting IMP-RULES-THREADS .
+  protecting IMP-EXAMPLE-CODE .
+endm
+
+rew thread(id(1) k(p1)) latest(0) env(empty) .
+rew thread(id(1) k(p2)) latest(0) env(empty) .
+rew thread(id(1) k(p3)) latest(0) env(empty) .
+rew thread(id(1) k(p4)) latest(0) env(empty) .
+rew thread(id(1) k(p5)) latest(0) env(empty) .
+rew thread(id(1) k(p6)) latest(0) env(empty) .
+---)
+

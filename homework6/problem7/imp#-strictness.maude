@@ -1,0 +1,55 @@
+
+--- Evaluation contexts
+fmod IMP#-EVAL-CONTEXT is
+  protecting IMP#-PROGRAM .
+  including IMP-EVAL-CONTEXT .
+  op print`[`] : -> KLabel [ctor] .
+
+  op @_[[]] : VarId -> KLabel [ctor] .
+  op @_`(_`[`]_`) : VarId ExpList ExpList -> KLabel [ctor] .
+
+  op _[[]]:=_ : VarId Exp -> KLabel [ctor] .
+  op _[_]:=[] : VarId Value -> KLabel [ctor] .
+
+  op return[] : -> KLabel [ctor] .
+  op call[] : -> KLabel [ctor] .
+endfm
+
+
+--- Extra heating/cooling rules for IMP#
+fmod IMP#-STRICTNESS is
+  protecting IMP-STRICTNESS .
+  including IMP#-EVAL-CONTEXT .
+
+  subsort Program < KLabel .
+
+  vars X F : VarId .
+  vars E E' : Exp .
+  vars V V' : Value .
+  vars EL EL' : ExpList .
+  var K : K .
+
+  ceq k(print(E) ~> K)      = k(E ~> print [] ~> K) if not E :: Value .
+  eq  k(V ~> print [] ~> K) = k(print(V) ~> K) .
+
+  ceq k(@ X[E] ~> K)       = k(E ~> @ X[[]] ~> K) if not E :: Value .
+  eq  k(V ~> @ X[[]] ~> K) = k(@ X[V] ~> K) .
+
+  ceq k(@ F(EL, E, EL') ~> K)     = k(E ~> @ F(EL [] EL') ~> K) if not E :: Value .
+  eq  k(V ~> @ F(EL [] EL') ~> K) = k(@ F(EL, V, EL') ~> K) .
+
+  op _[[]]:=_ : VarId Exp -> KLabel [ctor] .
+  op _[_]:=[] : VarId Value -> KLabel [ctor] .
+
+  ceq k(X[E] := E' ~> K)       = k(E ~> X[[]] := E' ~> K) if not E :: Value .
+  eq  k(V ~> X[[]] := E' ~> K) = k(X[V] := E' ~> K) .
+
+  ceq k(X[V] := E ~> K)        = k(E ~> X[V] := [] ~> K) if not E :: Value .
+  eq  k(V' ~> X[V] := [] ~> K) = k(X[V] := V' ~> K) .
+
+  ceq k(return E ~> K)       = k(E ~> return [] ~> K) if not E :: Value .
+  eq  k(V ~> return [] ~> K) = k(return V ~> K) .
+ 
+  ceq k(call E ~> K)       = k(E ~> call [] ~> K) if not E :: Value .
+  eq  k(V ~> call [] ~> K) = k(call V ~> K) .
+endfm

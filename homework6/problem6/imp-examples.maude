@@ -1,0 +1,110 @@
+
+--- IMP program examples
+fmod IMP-EXAMPLE-CODE is
+  protecting IMP-STMT-DECL .
+
+  ops p1 p2 p3 p4 p5 p6 : -> Block [ctor] .
+
+  eq p1 =
+     var 'a ;
+     var 'b ;
+     'a := # 1 ;
+     'b := # 2 ;
+     'a := 'a + 'b
+  .
+
+  eq p2 =
+     var 'n ; var 'i ; var 's ;
+     'n := # 100 ;
+     'i := # 0 ;
+     's := # 0 ;
+     while 'i <= 'n do
+       's := 's + 'i ;
+       'i := 'i + # 1
+     end
+  .
+
+  eq p3 =
+     var 'n ; var 'a ;
+     'n := # 5 ;
+     'a := # 1 ;
+     while 'n > # 0 do
+        'a := 'a * 'n ;
+        'n := 'n - # 1
+     end
+  .
+
+  --- the sum of even numbers
+  eq p4 =
+     var 'n ; var 'i ; var 's ;
+     'n := # 100 ;
+     'i := # 0 ;
+     's := # 0 ;
+     while 'n >= 'i do
+         if ('i / # 2) * # 2 = 'i then
+             's := 's + 'i
+         fi ;
+         'i := 'i + # 1
+     end
+  .
+
+  --- This program tests the Collatz conjecture for all numbers up to m
+  --- and accumulates the total number of steps in s.
+  eq p5 =
+     var 'm ; var 'n ; var 'q ; var 'r ; var 's ;
+     'm := # 10 ;
+     's := # 0 ;
+     while 'm > # 2 do
+         'n := 'm ;
+         'm := 'm - # 1 ;
+         while 'n > # 1 do
+           's := 's + # 1 ;
+           'q := 'n / # 2 ;
+           'r := # 2 * 'q + # 1 ;
+           if 'r <= 'n then
+               --- n becomes 3*n+1 if odd
+               'n := # 3 * 'n + # 1    
+           else
+               --- or n/2 if even
+               'n := 'q	             
+           fi
+         end
+     end
+  .
+
+  --- This program counts in s all the prime numbers up to m.
+  eq p6 =
+     var 'i ; var 'm ; var 'n ; var 'q ; var 'r ; var 's ; var 't ;
+     var 'x ; var 'y ; var 'z ;
+     's := # 0 ;
+     'm := # 100 ;  
+     'n := # 2 ;
+     while 'm >= 'n do
+       --- checking primality of n and writing t to 1 or 0
+       'i := # 2 ;  
+       'q := 'n / 'i ;  
+       't := # 1 ;
+       while ('i <= 'q) && ('t >= # 1) do
+         'x := 'i ;
+         'y := 'q ;
+         --- fast multiplication (base 2) algorithm
+         'z := # 0 ;
+         while 'x > # 0 do
+           'q := 'x / # 2 ;
+           'r := # 2 * 'q + # 1 ;
+           if 'x >= 'r then 'z := 'z + 'y fi ;
+           'x := 'q ;
+           'y := # 2 * 'y
+         end ; --- end fast multiplication
+         if 'n <= 'z then 
+           't := # 0
+         else
+           'i := 'i + # 1 ;  
+           'q := 'n / 'i
+         fi
+       end ; --- end checking primality
+       if 't >= # 1 then 's := 's + # 1 fi ;
+       'n := 'n + # 1
+     end
+  .
+endfm

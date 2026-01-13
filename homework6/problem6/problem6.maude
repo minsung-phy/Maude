@@ -1,0 +1,119 @@
+load imp-semantics
+load model-checker
+
+
+mod DEKKER is
+  including IMP-RULES-THREADS .
+
+  op crit : -> UserStmt [ctor] .
+  op rem : -> LoopingUserStmt [ctor] .
+
+  ops th1 th2 : -> Program [ctor] .
+  eq th1 =
+        while # true do
+	  'c1 := # 0 ;
+	  while 'c2 = # 0 do
+	    if 'turn = # 2 then
+	      'c1 := # 1 ;
+	      while 'turn = # 2 do skip end ;
+	      'c1 := # 0
+	    fi
+	  end ;
+	  crit ;
+	  'turn := # 2 ;
+	  'c1 := # 1 ;
+	  rem
+	end .
+
+  eq th2 =
+        while # true do
+	  'c2 := # 0 ;
+	  while 'c1 = # 0 do
+	    if 'turn = # 1 then
+	      'c2 := # 1 ;
+	      while 'turn = # 1 do skip end ;
+	      'c2 := # 0
+	    fi
+	  end ;
+	  crit ;
+	  'turn := # 1 ;
+	  'c2 := # 1 ;
+	  rem
+	end .
+endm
+
+
+mod DEKKER-CHECK is
+  including DEKKER .
+  including MODEL-CHECKER .
+
+  var K K' : K .           var CF : KConfig .
+  var X : VarId .
+  vars V V' : Value .   var ENV : Map{VarId,Value} .
+  var E : Exp .         vars S S' : Stmt .
+  var U : UserStmt .    
+  var B : Bool .        vars ID ID' : Nat .
+
+  op {_} : KConfig -> State [ctor] .
+
+  op initial : -> State .
+  eq initial 
+   = {thread(id(1) k(th1)) thread(id(2) k(th2)) latest(0) 
+      env(('c1 |-> # 0) ; ('c2 |-> # 0) ; 'turn |-> # 1)} .
+
+  ---
+  ops in-crit in-rem exec : Nat -> Prop .
+  eq {thread(id(ID) k(crit ~> K)) CF} |= in-crit(ID) = true .
+  eq {CF} |= in-crit(ID) = false [owise] .
+
+  eq {thread(id(ID) k(rem  ~> K)) CF} |= in-rem(ID)  = true .
+  eq {CF} |= in-rem(ID) = false [owise] .
+
+  eq {latest(ID) CF} |= exec(ID') = ID == ID' .
+
+  op enabled : Nat -> Prop .
+---TODO: define equations for enabled, where enabled(I) means that 
+---      a thread with id I can be executed by rewrite rules.
+  --- eq {thread(id(ID) k(K ~> K')) CF} |= enabled(ID) = true .
+  --- eq {CF} |= enabled(ID) = false [owise] .
+
+  eq {thread(id(ID) k(.K)) CF} |= enabled(ID) = false .
+  eq {thread(id(ID) k(skip)) CF} |= enabled(ID) = false .
+  eq {thread(id(ID) k(K)) CF} |= enabled(ID) = true .
+  eq {CF} |= enabled(ID) = false [owise] .
+
+  --- 공정성(Fairness) 공식 정의
+  op SF : Nat -> Formula .
+  op WF : Nat -> Formula .
+  
+  --- Strong Fairness: 무한히 자주 enabled 되면, 무한히 자주 실행된다.
+  eq SF(ID) = ([]<> enabled(ID)) -> []<> exec(ID) .
+  
+  --- Weak Fairness: 계속해서(끊임없이) enabled 되면, 무한히 자주 실행된다.
+  eq WF(ID) = (<>[] enabled(ID)) -> []<> exec(ID) .
+endm
+
+frew [20] initial .
+
+set verbose on .
+
+---TODO: write a model check command to verify the mutual execlusion property: 
+---      "two threads cannot be in the critical section at the same time."
+--- TODO: 상호 배제 성질을 검증하는 모델 검사 명령을 작성하라:
+---       "두 스레드는 동시에 임계 구역에 들어갈 수 없다."
+red modelCheck(initial, []~ (in-crit(1) /\ in-crit(2))) .
+
+--- The following command returns a counterexample, because the liveness property
+--- "Thread 1 can enter the critical section infinitely many times" does not hold.
+--- 아래 명령은 반례(counterexample)를 반환한다. 
+--- 이는 "스레드 1이 임계 구역에 무한히 많이 들어갈 수 있다"라는 활성(liveness) 성질이 성립하지 않기 때문이다.
+red modelCheck(initial, []<> in-crit(1)) .
+
+
+---TODO: write a model check command to verify the liveness property with appropriate 
+---      fairness assumptions. Try to find the weakest assumptions.
+--- TODO: 적절한 공정성(fairness) 가정을 추가하여 활성(liveness) 성질을 검증하는 모델 검사 명령을 작성하라.
+---       가능한 한 가장 약한(최소한의) 가정을 찾아보라.
+
+red modelCheck(initial, (WF(1) /\ WF(2)) -> []<> in-crit(1)) .
+red modelCheck(initial, (SF(1) /\ SF(2)) -> []<> in-crit(1)) .
