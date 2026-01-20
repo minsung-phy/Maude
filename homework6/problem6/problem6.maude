@@ -79,7 +79,7 @@ mod DEKKER-CHECK is
 
   eq {thread(id(ID) k(.K)) CF} |= enabled(ID) = false .
   eq {thread(id(ID) k(skip)) CF} |= enabled(ID) = false .
-  eq {thread(id(ID) k(K)) CF} |= enabled(ID) = true .
+  eq {thread(id(ID) k(K)) CF} |= enabled(ID) = true [owise] . 
   eq {CF} |= enabled(ID) = false [owise] .
 
   --- 공정성(Fairness) 공식 정의
@@ -115,5 +115,5 @@ red modelCheck(initial, []<> in-crit(1)) .
 --- TODO: 적절한 공정성(fairness) 가정을 추가하여 활성(liveness) 성질을 검증하는 모델 검사 명령을 작성하라.
 ---       가능한 한 가장 약한(최소한의) 가정을 찾아보라.
 
-red modelCheck(initial, (WF(1) /\ WF(2)) -> []<> in-crit(1)) .
-red modelCheck(initial, (SF(1) /\ SF(2)) -> []<> in-crit(1)) .
+red modelCheck(initial, (WF(1) /\ WF(2) /\ []<> ~ in-rem(1)) -> []<> in-crit(1)) .
+--- red modelCheck(initial, (SF(1) /\ SF(2) /\ []<> ~ in-rem(1)) -> []<> in-crit(1)) .
